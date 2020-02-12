@@ -14,7 +14,7 @@ struct ContentView: View {
     NavigationView {
       List(networkManager.articles) { article in
         NavigationLink(destination: DetailView(url: article.url)) {
-          Item(description: article.description, source: article.sourceName, title: article.title)
+          Item(description: article.description, source: article.source.name, title: article.title, urlToImage: article.urlToImage)
         }
       }
       .navigationBarTitle("n3wz")
@@ -32,16 +32,32 @@ struct ContentView_Previews: PreviewProvider {
 }
 
 struct Item: View {
-  let description: String?
-  let source: String
-  let title: String
+  var description: String?
+  var source: String
+  var title: String
+  var urlToImage: String
+  
+  init(description: String?, source: String, title: String, urlToImage: String) {
+    
+    self.imageLoader = Loader(urlToImage)
+    self.description = description ?? ""
+    self.source = source
+    self.title = title
+    self.urlToImage = urlToImage
+  }
+  
+  @ObservedObject private var imageLoader: Loader
+  var image: UIImage? {
+    imageLoader.data.flatMap(UIImage.init)
+  }
   
   var body: some View {
     
     VStack(alignment: .leading) {
-      Image("nfl")
-      .resizable()
-        .aspectRatio(contentMode: .fit)
+      Image(uiImage: image ?? placeholder)
+        .resizable()
+        .aspectRatio(contentMode: .fill)
+        .frame(maxHeight: 200)
         .clipShape(RoundedRectangle(cornerRadius: CGFloat(20))
       )
       Text(title)
@@ -57,3 +73,27 @@ struct Item: View {
     }
   }
 }
+
+final class Loader: ObservableObject {
+  
+  var task: URLSessionDataTask!
+  @Published var data: Data? = nil
+  
+  init(_ url: String) {
+    var urlString = url
+    urlString = urlString.replacingOccurrences(of: "http://", with: "https://")
+    let urlSafe = URL(string: urlString)
+    
+    task = URLSession.shared.dataTask(with: urlSafe!, completionHandler: { data, _, _ in
+      DispatchQueue.main.async {
+        self.data = data
+      }
+    })
+    task.resume()
+  }
+  deinit {
+    task.cancel()
+  }
+}
+
+let placeholder = UIImage(named: "placeholder.png")!
